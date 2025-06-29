@@ -8,7 +8,7 @@ const indieFlower = Indie_Flower({
 });
 
 export const metadata = {
-  title: "MyDiary",
+  title: "Mini Diary",
   description: "Simple diary to note down daily thoughts!",
 };
 
