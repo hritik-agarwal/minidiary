@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+
+const LS_KEY = "mydiary:notes";
 
 export default function Home() {
   const [note, setNote] = useState("");
@@ -26,12 +28,10 @@ export default function Home() {
       alert("Max lenght of note should be less than 1000 characters");
       return;
     }
-    setNotes((notes) => {
-      return [
-        { id: crypto.randomUUID(), text: newNote, date: newDate },
-        ...notes,
-      ];
-    });
+    setNotes([
+      { id: crypto.randomUUID(), text: newNote, date: newDate },
+      ...notes,
+    ]);
     setNote("");
   }
 
@@ -58,14 +58,25 @@ export default function Home() {
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
   }
 
-  function hnadleEditNote(e) {
+  function handleEditNote(e) {
     setEditNoteValue(e.target.value);
-    // handleResize(e);
   }
+
+  useEffect(() => {
+    let data = localStorage.getItem(LS_KEY);
+    if (data) {
+      data = JSON.parse(data);
+      setNotes(data);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(notes));
+  }, [notes]);
 
   return (
     <div className="h-screen">
-      <div className="max-w-[800px] px-10 border border-black h-full m-auto">
+      <div className="max-w-[800px] px-10 border border-black h-full m-auto flex flex-col py-5">
         <p className="text-6xl text-center py-4 italic font-bold font-indie-flower">
           Mini Diary
         </p>
@@ -79,12 +90,13 @@ export default function Home() {
             className="w-full h-40 resize-none"
             spellCheck="false"
             value={note}
+            placeholder="What's on your mind..."
             onChange={(e) => setNote(e.target.value)}
           />
           <Button className="w-fit cursor-pointer">Add Note</Button>
         </form>
 
-        <div className="mt-10">
+        <div className="mt-10 overflow-scroll border scrollbar">
           {notes
             .sort((a, b) => b.date - a.date)
             .map(({ id, text, date }) => (
@@ -94,12 +106,13 @@ export default function Home() {
                 onMouseOver={() => setEditNoteHover(id)}
                 onMouseLeave={() => setEditNoteHover(null)}
               >
-                <p className="text-gray-400">{date.toISOString()}</p>
+                <p className="text-gray-400">
+                  {date && typeof date == "string" ? date : date.toISOString()}
+                </p>
                 <textarea
                   value={editNoteId === id ? editNoteValue : text}
                   disabled={editNoteId !== id}
-                  autofocus={true}
-                  onChange={hnadleEditNote}
+                  onChange={handleEditNote}
                   className={cn(
                     "w-full resize-none p-2",
                     editNoteId === id && "border",

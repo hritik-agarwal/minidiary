@@ -130,3 +130,14 @@
     font-family: var(--font-indie-flower);
   }
 }
+
+@layer utilities {
+  .scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 10px;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb {
+    border: 3px solid #f6f7ed;
+  }
+}
