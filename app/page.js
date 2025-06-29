@@ -5,6 +5,7 @@ import { Trash, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import ResizableTextarea from "@/components/ui/resizeTextarea";
 
 const LS_KEY = "mydiary:notes";
 
@@ -22,10 +23,6 @@ export default function Home() {
     const newNote = note.trim();
     if (newNote.trim().length === 0) {
       alert("Empty note! Please fill it before submitting");
-      return;
-    }
-    if (newNote.trim().length > 1000) {
-      alert("Max lenght of note should be less than 1000 characters");
       return;
     }
     setNotes([
@@ -62,6 +59,18 @@ export default function Home() {
     setEditNoteValue(e.target.value);
   }
 
+  function NoteDate({ iso }) {
+    const date = new Date(iso).toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    return <p className="text-gray-500">{date}</p>;
+  }
+
   useEffect(() => {
     let data = localStorage.getItem(LS_KEY);
     if (data) {
@@ -96,7 +105,7 @@ export default function Home() {
           <Button className="w-fit cursor-pointer">Add Note</Button>
         </form>
 
-        <div className="mt-10 overflow-scroll border scrollbar">
+        <div className="mt-10 overflow-scroll scrollbar">
           {notes
             .sort((a, b) => b.date - a.date)
             .map(({ id, text, date }) => (
@@ -106,19 +115,16 @@ export default function Home() {
                 onMouseOver={() => setEditNoteHover(id)}
                 onMouseLeave={() => setEditNoteHover(null)}
               >
-                <p className="text-gray-400">
-                  {date && typeof date == "string" ? date : date.toISOString()}
-                </p>
-                <textarea
+                <NoteDate iso={date} />
+                <ResizableTextarea
                   value={editNoteId === id ? editNoteValue : text}
                   disabled={editNoteId !== id}
                   onChange={handleEditNote}
-                  className={cn(
-                    "w-full resize-none p-2",
-                    editNoteId === id && "border",
-                    editNoteHover === id && "h-[200px]"
-                  )}
                   onBlur={() => handleEdit(id)}
+                  className={cn(
+                    "w-full resize-none p-2 italic text-gray-800 text-[14px]",
+                    editNoteId === id && "border"
+                  )}
                 />
                 {editNoteHover === id && (
                   <>
