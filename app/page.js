@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Trash, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import ResizableTextarea from "@/components/ui/resizeTextarea";
+import Image from "next/image";
 
 const LS_KEY = "mydiary:notes";
 
@@ -17,12 +17,14 @@ export default function Home() {
   const [editNoteValue, setEditNoteValue] = useState("");
   const [editNoteHover, setEditNoteHover] = useState(null);
 
+  const [emptyWarning, setEmptyWarning] = useState(false);
+
   function handleSubmit(e) {
     e.preventDefault();
     let newDate = new Date();
     const newNote = note.trim();
     if (newNote.trim().length === 0) {
-      alert("Empty note! Please fill it before submitting");
+      setEmptyWarning(true);
       return;
     }
     setNotes([
@@ -68,7 +70,7 @@ export default function Home() {
       minute: "2-digit",
     });
 
-    return <p className="text-gray-500">{date}</p>;
+    return <p className="text-gray-800">{date}</p>;
   }
 
   useEffect(() => {
@@ -84,34 +86,63 @@ export default function Home() {
   }, [notes]);
 
   return (
-    <div className="h-screen">
-      <div className="max-w-[800px] px-10 border border-black h-full m-auto flex flex-col py-5">
+    <div className="h-screen relative flex flex-col md:flex-row md:items-start">
+      <Image
+        src="/page.jpg"
+        layout="fill"
+        quality={100}
+        alt=""
+        className="opacity-5 absolute"
+      />
+      <div className="w-full md:w-[50%] px-10 md:border-r-[1px] md:border-gray-300 flex flex-col py-5 note-container h-full">
         <p className="text-6xl text-center py-4 italic font-bold font-indie-flower">
           Mini Diary
         </p>
-
+        <p className="italic text-xs text-gray-400 text-center mt-[-20px] mr-20 tracking-widest relative">
+          Notes that only live in your browser,
+        </p>
+        <p className="italic text-xs text-gray-400 text-center mr-20 tracking-widest relative">
+          clearing site data will remove them.
+        </p>
         <form
-          className="flex text-right mt-5 flex-col gap-5 items-end"
+          className="flex text-right mt-5 flex-col gap-5 items-end relative"
           onSubmit={handleSubmit}
         >
-          <Textarea
+          <ResizableTextarea
             name="note"
-            className="w-full h-40 resize-none"
+            className="w-full resize-none scrollbar p-2 border min-h-[70vh] max-h-[70vh] text-gray-600 italic border-gray-300"
             spellCheck="false"
             value={note}
             placeholder="What's on your mind..."
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => {
+              setNote(e.target.value);
+              setEmptyWarning(false);
+            }}
           />
-          <Button className="w-fit cursor-pointer">Add Note</Button>
+          {emptyWarning && (
+            <p className="text-xs italic text-orange-500 text-left absolute bottom-9 left-0">
+              Empty note! Please fill it before submitting
+            </p>
+          )}
+          <Button
+            variant={"outline"}
+            className="w-fit cursor-pointer hover:border"
+          >
+            Add Note
+          </Button>
         </form>
-
-        <div className="mt-10 overflow-scroll scrollbar">
+      </div>
+      <div className="w-full md:w-[50%] flex flex-col h-full">
+        <p className="text-4xl text-center py-4 italic font-indie-flower text-gray-500">
+          History
+        </p>
+        <div className="md:overflow-scroll scrollbar h-full">
           {notes
             .sort((a, b) => b.date - a.date)
             .map(({ id, text, date }) => (
               <div
                 key={id}
-                className="border p-2 relative"
+                className="p-2 relative border-b-2"
                 onMouseOver={() => setEditNoteHover(id)}
                 onMouseLeave={() => setEditNoteHover(null)}
               >
@@ -122,7 +153,7 @@ export default function Home() {
                   onChange={handleEditNote}
                   onBlur={() => handleEdit(id)}
                   className={cn(
-                    "w-full resize-none p-2 italic text-gray-800 text-[14px]",
+                    "w-full resize-none p-2 italic text-gray-600 text-[14px] scrollbar",
                     editNoteId === id && "border"
                   )}
                 />
