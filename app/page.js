@@ -68,9 +68,9 @@ export default function Home() {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
-
-    return <p className="text-gray-800">{date}</p>;
+    return <p className="text-center underline text-gray-500 mb-5">{date}</p>;
   }
 
   useEffect(() => {
@@ -94,15 +94,12 @@ export default function Home() {
         alt=""
         className="opacity-5 absolute"
       />
-      <div className="w-full md:w-[50%] px-10 md:border-r-[1px] md:border-gray-300 flex flex-col py-5 note-container h-full">
-        <p className="text-6xl text-center py-4 italic font-bold font-indie-flower">
+      <div className="w-full md:w-[50%] px-10 md:border-r-[1px] md:border-gray-300 flex flex-col py-5 h-full">
+        <p className="text-6xl text-center py-4 italic font-bold font-indie-flower font-thin text-gray-500">
           Mini Diary
         </p>
         <p className="italic text-xs text-gray-400 text-center mt-[-20px] mr-20 tracking-widest relative">
-          Notes that only live in your browser,
-        </p>
-        <p className="italic text-xs text-gray-400 text-center mr-20 tracking-widest relative">
-          clearing site data will remove them.
+          minimalistic space to just write...
         </p>
         <form
           className="flex text-right mt-5 flex-col gap-5 items-end relative"
@@ -110,7 +107,7 @@ export default function Home() {
         >
           <ResizableTextarea
             name="note"
-            className="w-full resize-none scrollbar p-2 border min-h-[70vh] max-h-[70vh] text-gray-600 italic border-gray-300"
+            className="w-full resize-none scrollbar p-2 border min-h-[200px] max-h-[70vh] text-gray-600 italic border-gray-300"
             spellCheck="false"
             value={note}
             placeholder="What's on your mind..."
@@ -133,10 +130,12 @@ export default function Home() {
         </form>
       </div>
       <div className="w-full md:w-[50%] flex flex-col h-full">
-        <p className="text-4xl text-center py-4 italic font-indie-flower text-gray-500">
-          History
-        </p>
         <div className="md:overflow-scroll scrollbar h-full">
+          {notes.length === 0 && (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 italic">
+              <p>Your notes will appear here...</p>
+            </div>
+          )}
           {notes
             .sort((a, b) => b.date - a.date)
             .map(({ id, text, date }) => (
@@ -153,15 +152,15 @@ export default function Home() {
                   onChange={handleEditNote}
                   onBlur={() => handleEdit(id)}
                   className={cn(
-                    "w-full resize-none p-2 italic text-gray-600 text-[14px] scrollbar",
-                    editNoteId === id && "border"
+                    "w-full resize-none italic text-gray-600 text-[14px] scrollbar",
+                    editNoteId === id && "outline outline-offset-4"
                   )}
                 />
                 {editNoteHover === id && (
                   <>
                     <Pencil
                       color="grey"
-                      className="absolute top-2 right-2 cursor-pointer"
+                      className="absolute top-2 right-6 cursor-pointer"
                       size={"15"}
                       onClick={() => {
                         setEditNoteId(id);
@@ -169,8 +168,8 @@ export default function Home() {
                       }}
                     />
                     <Trash
-                      color="red"
-                      className="absolute top-8 right-2 cursor-pointer"
+                      color="grey"
+                      className="absolute top-2 right-2 cursor-pointer"
                       size={"15"}
                       onClick={() => handleDelete(id)}
                     />
