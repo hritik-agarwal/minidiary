@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import ResizableTextarea from "@/components/ui/resizeTextarea";
 import Image from "next/image";
 
-const LS_KEY = "mydiary:notes";
+const LS_NOTE_KEY = "mydiary:note";
+const LS_NOTES_KEY = "mydiary:notes";
 
 export default function Home() {
   const [note, setNote] = useState("");
@@ -74,16 +75,25 @@ export default function Home() {
   }
 
   useEffect(() => {
-    let data = localStorage.getItem(LS_KEY);
-    if (data) {
-      data = JSON.parse(data);
-      setNotes(data);
+    let ls_note = localStorage.getItem(LS_NOTE_KEY);
+    let ls_notes = localStorage.getItem(LS_NOTES_KEY);
+    if (ls_note) {
+      ls_note = JSON.parse(ls_note);
+      setNote(ls_note["value"]);
+    }
+    if (ls_notes) {
+      ls_notes = JSON.parse(ls_notes);
+      setNotes(ls_notes);
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(notes));
+    localStorage.setItem(LS_NOTES_KEY, JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_NOTE_KEY, JSON.stringify({ value: note }));
+  }, [note]);
 
   return (
     <div className="h-screen relative flex flex-col md:flex-row md:items-start">
@@ -151,6 +161,7 @@ export default function Home() {
                   disabled={editNoteId !== id}
                   onChange={handleEditNote}
                   onBlur={() => handleEdit(id)}
+                  spellCheck="false"
                   className={cn(
                     "w-full resize-none italic text-gray-600 text-[14px] scrollbar",
                     editNoteId === id && "outline outline-offset-4"
