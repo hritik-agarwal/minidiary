@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash, Pencil } from "lucide-react";
+import { Trash, Pencil, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ResizableTextarea from "@/components/ui/resizeTextarea";
@@ -19,6 +19,7 @@ export default function Home() {
   const [editNoteHover, setEditNoteHover] = useState(null);
 
   const [emptyWarning, setEmptyWarning] = useState(false);
+  const [space, setSpace] = useState({});
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -33,6 +34,29 @@ export default function Home() {
       ...notes,
     ]);
     setNote("");
+  }
+
+  function spaceCalculate() {
+    const MAX_BYTES = 5 * 1024 * 1024;
+    const AVG_BYTES_WORD = 12;
+
+    let totalBytesUsed = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k);
+      totalBytesUsed += (k.length + v.length) * 2;
+    }
+
+    const bytesRemaining = MAX_BYTES - totalBytesUsed;
+    const mbRemaining = bytesRemaining / (1024 * 1024);
+    const wordsRemaining = Math.floor(bytesRemaining / AVG_BYTES_WORD);
+
+    const fmtMB = mbRemaining.toFixed(2);
+    const fmtWords = new Intl.NumberFormat("en", {
+      notation: "compact",
+    }).format(wordsRemaining);
+
+    return { fmtMB, fmtWords };
   }
 
   function handleDelete(id) {
@@ -85,10 +109,12 @@ export default function Home() {
       ls_notes = JSON.parse(ls_notes);
       setNotes(ls_notes);
     }
+    setSpace(spaceCalculate());
   }, []);
 
   useEffect(() => {
     localStorage.setItem(LS_NOTES_KEY, JSON.stringify(notes));
+    setSpace(spaceCalculate());
   }, [notes]);
 
   useEffect(() => {
@@ -105,7 +131,13 @@ export default function Home() {
         className="opacity-5 absolute"
       />
       <div className="w-full md:w-[50%] px-10 md:border-r-[1px] md:border-gray-300 flex flex-col py-5 h-full">
-        <p className="text-6xl text-center py-4 italic font-bold font-indie-flower font-thin text-gray-500">
+        <div className="fixed left-5 top-2 flex items-center gap-2 group">
+          <Info color="grey" className="text-gray-400" size={"15"} />
+          <span className="text-gray-400 pointer-events-none opacity-0 -translate-x-2 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0">
+            {space.fmtMB} &nbsp;MB&nbsp;left&nbsp;(~{space.fmtWords}&nbsp;words)
+          </span>
+        </div>
+        <p className="text-6xl text-center py-4 italic font-indie-flower font-thin text-gray-500">
           Mini Diary
         </p>
         <p className="italic text-xs text-gray-400 text-center mt-[-20px] mr-20 tracking-widest relative">
