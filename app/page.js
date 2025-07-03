@@ -5,28 +5,56 @@ import { Trash, Pencil, Info, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ResizableTextarea from "@/components/ui/resizeTextarea";
-import Image from "next/image";
 
 const LS_NOTE_KEY = "mydiary:note";
 const LS_NOTES_KEY = "mydiary:notes";
 const LS_NOTE_ORDER_KEY = "mydiary:notesOrder";
-const MAX_BYTES = 5 * 1024 * 1024;
+const LS_MAX_BYTES_KEY = "mydiary:maxBytes";
 const AVG_BYTES_WORD = 12;
 
-function NoteDate({ iso }) {
-  const date = useMemo(
-    () =>
-      new Date(iso).toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    [iso]
-  );
-  return <p className="text-center underline text-gray-500 mb-5">{date}</p>;
+function estimateLocalStorageLimit() {
+  const testKey = '__test__';
+  const backup = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k !== testKey) backup[k] = localStorage.getItem(k);
+  }
+  let data = '1';
+  let total = 0;
+  try {
+    while (true) {
+      localStorage.setItem(testKey, data);
+      data += data;
+    }
+  } catch {
+    let left = data.length / 2, right = data.length;
+    while (left < right - 1) {
+      const mid = Math.floor((left + right) / 2);
+      try {
+        localStorage.setItem(testKey, '1'.repeat(mid));
+        left = mid;
+      } catch {
+        right = mid;
+      }
+    }
+    total = left;
+  }
+  localStorage.removeItem(testKey);
+  Object.entries(backup).forEach(([k, v]) => localStorage.setItem(k, v));
+  const maxspace = total * 2;
+  localStorage.setItem(LS_MAX_BYTES_KEY, String(maxspace));
+  return maxspace;
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 export default function Home() {
@@ -38,6 +66,7 @@ export default function Home() {
   const [emptyWarning, setEmptyWarning] = useState(false);
   const [space, setSpace] = useState({});
   const [noteOrder, setNoteOrder] = useState([]);
+  const [maxBytes, setMaxBytes] = useState(5 * 1024 * 1024);
 
   const spaceCalculate = useCallback(() => {
     let totalBytesUsed = 0;
@@ -46,7 +75,7 @@ export default function Home() {
       const v = localStorage.getItem(k);
       totalBytesUsed += (k.length + (v ? v.length : 0)) * 2;
     }
-    const bytesRemaining = MAX_BYTES - totalBytesUsed;
+    const bytesRemaining = maxBytes - totalBytesUsed;
     const mbRemaining = bytesRemaining / (1024 * 1024);
     const wordsRemaining = Math.floor(bytesRemaining / AVG_BYTES_WORD);
 
@@ -54,19 +83,28 @@ export default function Home() {
       fmtMB: mbRemaining.toFixed(2),
       fmtWords: new Intl.NumberFormat("en", { notation: "compact" }).format(wordsRemaining),
     };
-  }, []);
+  }, [maxBytes]);
 
   useEffect(() => {
-    let ls_note = localStorage.getItem(LS_NOTE_KEY);
-    let ls_notes = localStorage.getItem(LS_NOTES_KEY);
-    let ls_order = localStorage.getItem(LS_NOTE_ORDER_KEY);
-    let notesArr = ls_notes ? JSON.parse(ls_notes) : [];
+    if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+      let limit = localStorage.getItem(LS_MAX_BYTES_KEY);
+      if (limit) {
+        setMaxBytes(parseInt(limit, 10));
+      } else {
+        setMaxBytes(estimateLocalStorageLimit());
+      }
+    }
+
+    const ls_note = localStorage.getItem(LS_NOTE_KEY);
+    const ls_notes = localStorage.getItem(LS_NOTES_KEY);
+    const ls_order = localStorage.getItem(LS_NOTE_ORDER_KEY);
+    const notesArr = ls_notes ? JSON.parse(ls_notes) : [];
     let orderArr = ls_order ? JSON.parse(ls_order) : null;
 
     if (!orderArr || orderArr.length !== notesArr.length) {
-      orderArr = [...notesArr].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ).map(n => n.id);
+      orderArr = [...notesArr]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .map(n => n.id);
       localStorage.setItem(LS_NOTE_ORDER_KEY, JSON.stringify(orderArr));
     }
 
@@ -74,22 +112,23 @@ export default function Home() {
     setNotes(notesArr);
     setNoteOrder(orderArr);
     setSpace(spaceCalculate());
-  }, [spaceCalculate]);
+    // eslint-disable-next-line
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(LS_NOTES_KEY, JSON.stringify(notes));
     setSpace(spaceCalculate());
-  }, [notes]);
+  }, [notes, spaceCalculate]);
 
   useEffect(() => {
     localStorage.setItem(LS_NOTE_ORDER_KEY, JSON.stringify(noteOrder));
     setSpace(spaceCalculate());
-  }, [noteOrder]);
+  }, [noteOrder, spaceCalculate]);
 
   useEffect(() => {
     localStorage.setItem(LS_NOTE_KEY, JSON.stringify({ value: note }));
     setSpace(spaceCalculate());
-  }, [note]);
+  }, [note, spaceCalculate]);
 
   const handleSubmit = useCallback(
     (e) => {
@@ -100,11 +139,11 @@ export default function Home() {
         return;
       }
       const newId = crypto.randomUUID();
-      setNotes((prev) => [
+      setNotes(prev => [
         { id: newId, text: newNote, date: new Date().toISOString() },
         ...prev,
       ]);
-      setNoteOrder((prev) => [newId, ...prev]);
+      setNoteOrder(prev => [newId, ...prev]);
       setNote("");
     },
     [note]
@@ -112,14 +151,14 @@ export default function Home() {
 
   const handleDelete = useCallback(
     (id) => {
-      setNotes((prev) => prev.filter((note) => note.id !== id));
-      setNoteOrder((prev) => prev.filter((nid) => nid !== id));
+      setNotes(prev => prev.filter(note => note.id !== id));
+      setNoteOrder(prev => prev.filter(nid => nid !== id));
     },
     []
   );
 
-  const moveNoteUp = (id) => {
-    setNoteOrder((prev) => {
+  const moveNoteUp = useCallback((id) => {
+    setNoteOrder(prev => {
       const idx = prev.indexOf(id);
       if (idx > 0) {
         const newOrder = [...prev];
@@ -128,10 +167,10 @@ export default function Home() {
       }
       return prev;
     });
-  };
+  }, []);
 
-  const moveNoteDown = (id) => {
-    setNoteOrder((prev) => {
+  const moveNoteDown = useCallback((id) => {
+    setNoteOrder(prev => {
       const idx = prev.indexOf(id);
       if (idx < prev.length - 1) {
         const newOrder = [...prev];
@@ -140,34 +179,28 @@ export default function Home() {
       }
       return prev;
     });
-  };
+  }, []);
 
   const orderedNotes = useMemo(() => {
     if (noteOrder.length === notes.length && noteOrder.length > 0) {
-      const noteMap = Object.fromEntries(notes.map((n) => [n.id, n]));
-      return noteOrder.map((id) => noteMap[id]).filter(Boolean);
+      const noteMap = Object.fromEntries(notes.map(n => [n.id, n]));
+      return noteOrder.map(id => noteMap[id]).filter(Boolean);
     }
-    return [...notes].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    return [...notes].sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [notes, noteOrder]);
 
   const handleEdit = useCallback(
     (id) => {
-    setNotes((prev) =>
-      prev.map((note) =>
-        note.id === id ? { ...note, text: editNoteValue } : note
-      )
-    );
-    setEditNoteId(null);
-    setEditNoteValue("");
-  },
-  [editNoteValue]
-);
-
-  const handleEditNote = useCallback((id, value) => {
-    if (editNoteId === id) setEditNoteValue(value);
-  }, [editNoteId]);
+      setNotes(prev =>
+        prev.map(note =>
+          note.id === id ? { ...note, text: editNoteValue } : note
+        )
+      );
+      setEditNoteId(null);
+      setEditNoteValue("");
+    },
+    [editNoteValue]
+  );
 
   const setEditNoteIdAndValue = useCallback((id, text) => {
     setEditNoteId(id);
@@ -176,28 +209,20 @@ export default function Home() {
 
   return (
     <div className="h-screen relative flex flex-col md:flex-row md:items-start">
-      <Image
-        src="/page.jpg"
-        fill
-        quality={100}
-        alt=""
-        className="opacity-5 absolute"
-      />
       <div className="w-full md:w-[50%] px-10 md:border-r-[1px] md:border-gray-300 flex flex-col py-5 h-full">
-        <div className="fixed left-5 top-2 flex items-center gap-2 group z-10">
-          <Info color="grey" className="text-gray-400" size={15} />
-          <span
-            className={cn(
-              "text-gray-400 pointer-events-none opacity-0 -translate-x-2 transition-all duration-300 ease-out",
-              "group-hover:opacity-100 group-hover:translate-x-0",
-              "md:pointer-events-none md:opacity-0 md:-translate-x-2 md:group-hover:opacity-100 md:group-hover:translate-x-0",
-              "block md:inline",
-              "opacity-100 translate-x-0 md:opacity-0 md:-translate-x-2"
-            )}
-          >
-            {space.fmtMB} &nbsp;MB&nbsp;left&nbsp;(~{space.fmtWords}&nbsp;words)
+        <span
+          className={cn(
+            "fixed z-10 left-1 top-2 text-gray-400 text-xs font-medium flex flex-col items-center gap-0.5 bg-transparent md:rotate-0 md:left-5 md:top-2 md:text-sm md:bg-transparent md:flex-row md:items-center md:gap-1",
+          )}
+          style={{ maxWidth: '90vw', whiteSpace: 'nowrap' }}
+        >
+          <span className="[writing-mode:vertical-rl] [text-orientation:sideways] md:[writing-mode:unset] rotate-180 md:rotate-0 md:ml-1 flex flex-row items-center md:flex-row md:items-center">
+            <Info color="grey" className="inline align-text-bottom mb-1 md:mb-0 md:mr-1 rotate-90 md:rotate-0" size={13} />
+            <span>
+              {space.fmtMB} MB left (~{space.fmtWords} words)
+            </span>
           </span>
-        </div>
+        </span>
         <p className="text-6xl text-center py-4 italic font-indie-flower font-thin text-gray-500">
           My Diary
         </p>
@@ -211,7 +236,7 @@ export default function Home() {
             spellCheck={false}
             value={note}
             placeholder="minimalistic space to just write..."
-            onChange={(e) => {
+            onChange={e => {
               setNote(e.target.value);
               setEmptyWarning(false);
             }}
@@ -237,109 +262,99 @@ export default function Home() {
               <p>Your notes will appear here...</p>
             </div>
           ) : (
-            orderedNotes.map(({ id, text, date }, idx) => (
-              <div
-                key={id}
-                className="p-2 relative border-b-2"
-                onMouseOver={() => setEditNoteHover(id)}
-                onMouseLeave={() => setEditNoteHover(null)}
-              >
-                {editNoteId === id ? (
-                  <input
-                    type="text"
-                    value={(() => {
-                      const heading = editNoteValue.split('\n')[0];
-                      return heading;
-                    })()}
-                    onChange={e => {
-                      const oldVal = editNoteValue;
-                      const oldLines = oldVal.split('\n');
-                      const newHeading = e.target.value;
-                      setEditNoteValue(
-                        newHeading + (oldLines.length > 1 ? '\n' + oldLines.slice(1).join('\n') : '')
-                      );
-                    }}
-                    onBlur={() => {if (editNoteId === id) handleEdit(id);}}
-                    className="text-md text-gray-600 mb-0 break-words leading-tight capitalize w-full bg-transparent border-none focus:outline-none p-0"
-                    placeholder="(No Title)"
-                    spellCheck={false}
-                  />
-                ) : (
-                  <div className="text-md text-gray-600 mb-0 break-words leading-tight capitalize">
-                    {(() => {
-                      const heading = text.split('\n')[0];
-                      if (!heading) return <span className="italic text-gray-400">(No Title)</span>;
-                      return heading.replace(/\b\w/g, c => c.toUpperCase());
-                    })()}
-                  </div>
-                )}
-                <div className="text-xs text-gray-400 mb-2 mt-0 pl-1">
-                  {new Date(date).toLocaleString(undefined, {
-                    year: 'numeric', month: 'short', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                  })}
-                </div>
-                <ResizableTextarea
-                  value={(() => {
-                    const val = editNoteId === id ? editNoteValue : text;
-                    const lines = val.split('\n');
-                    return lines.length > 1 ? lines.slice(1).join('\n') : '';
-                  })()}
-                  disabled={editNoteId !== id}
-                  onChange={(e) => {
-                    if (editNoteId === id) {
-                      const oldVal = editNoteValue;
-                      const oldLines = oldVal.split('\n');
-                      const newBody = e.target.value;
-                      setEditNoteValue(
-                        (oldLines[0] || '') + (newBody ? '\n' + newBody : '')
-                      );
-                    }
-                  }}
-                  onBlur={() => {if (editNoteId === id) handleEdit(id);}}
-                  spellCheck={false}
-                  className={cn(
-                    "w-full resize-none italic text-gray-600 text-[14px] scrollbar",
-                    editNoteId === id && "outline outline-offset-4"
+            orderedNotes.map(({ id, text, date }, idx) => {
+              const [heading, ...bodyLines] = text.split('\n');
+              const isEditing = editNoteId === id;
+              const editHeading = editNoteValue.split('\n')[0];
+              const editBody = editNoteValue.split('\n').slice(1).join('\n');
+              return (
+                <div
+                  key={id}
+                  className="p-2 relative border-b-2"
+                  onMouseOver={() => setEditNoteHover(id)}
+                  onMouseLeave={() => setEditNoteHover(null)}
+                >
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editHeading}
+                      onChange={e => {
+                        const newHeading = e.target.value;
+                        setEditNoteValue(
+                          newHeading + (editBody ? '\n' + editBody : '')
+                        );
+                      }}
+                      onBlur={() => handleEdit(id)}
+                      className="text-md text-gray-600 mb-0 break-words leading-tight capitalize w-full bg-transparent border-none focus:outline-none p-0"
+                      placeholder="(No Title)"
+                      spellCheck={false}
+                    />
+                  ) : (
+                    <div className="text-md text-gray-600 mb-0 break-words leading-tight capitalize">
+                      {heading
+                        ? heading.replace(/\b\w/g, c => c.toUpperCase())
+                        : <span className="italic text-gray-400">(No Title)</span>
+                      }
+                    </div>
                   )}
-                  placeholder="Write your note body here..."
-                />
-                {editNoteHover === id && (
-                  <div className="absolute top-2 right-2 flex gap-4 items-center">
-                    <ArrowUp
-                      color={idx === 0 ? "#ccc" : "grey"}
-                      className={cn(
-                        "cursor-pointer",
-                        idx === 0 && "pointer-events-none"
-                      )}
-                      size={15}
-                      onClick={() => moveNoteUp(id)}
-                    />
-                    <ArrowDown
-                      color={idx === orderedNotes.length - 1 ? "#ccc" : "grey"}
-                      className={cn(
-                        "cursor-pointer",
-                        idx === orderedNotes.length - 1 && "pointer-events-none"
-                      )}
-                      size={15}
-                      onClick={() => moveNoteDown(id)}
-                    />
-                    <Pencil
-                      color="grey"
-                      className="cursor-pointer"
-                      size={15}
-                      onClick={() => {setEditNoteIdAndValue(id, text)}}
-                    />
-                    <Trash
-                      color="grey"
-                      className="cursor-pointer"
-                      size={15}
-                      onClick={() => handleDelete(id)}
-                    />
+                  <div className="text-xs text-gray-400 mb-2 mt-0 pl-1">
+                    {formatDate(date)}
                   </div>
-                )}
-              </div>
-            ))
+                  <ResizableTextarea
+                    value={isEditing ? editBody : bodyLines.join('\n')}
+                    disabled={!isEditing}
+                    onChange={e => {
+                      if (isEditing) {
+                        setEditNoteValue(
+                          (editHeading || '') + (e.target.value ? '\n' + e.target.value : '')
+                        );
+                      }
+                    }}
+                    onBlur={() => handleEdit(id)}
+                    spellCheck={false}
+                    className={cn(
+                      "w-full resize-none italic text-gray-600 text-[14px] scrollbar",
+                      isEditing && "outline outline-offset-4"
+                    )}
+                    placeholder="Write your note body here..."
+                  />
+                  {editNoteHover === id && (
+                    <div className="absolute top-2 right-2 flex gap-4 items-center">
+                      <ArrowUp
+                        color={idx === 0 ? "#ccc" : "grey"}
+                        className={cn(
+                          "cursor-pointer",
+                          idx === 0 && "pointer-events-none"
+                        )}
+                        size={15}
+                        onClick={() => moveNoteUp(id)}
+                      />
+                      <ArrowDown
+                        color={idx === orderedNotes.length - 1 ? "#ccc" : "grey"}
+                        className={cn(
+                          "cursor-pointer",
+                          idx === orderedNotes.length - 1 && "pointer-events-none"
+                        )}
+                        size={15}
+                        onClick={() => moveNoteDown(id)}
+                      />
+                      <Pencil
+                        color="grey"
+                        className="cursor-pointer"
+                        size={15}
+                        onClick={() => setEditNoteIdAndValue(id, text)}
+                      />
+                      <Trash
+                        color="grey"
+                        className="cursor-pointer"
+                        size={15}
+                        onClick={() => handleDelete(id)}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
