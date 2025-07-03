@@ -138,10 +138,7 @@ export default function Home() {
           </span>
         </div>
         <p className="text-6xl text-center py-4 italic font-indie-flower font-thin text-gray-500">
-          Mini Diary
-        </p>
-        <p className="italic text-xs text-gray-400 text-center mt-[-20px] mr-20 tracking-widest relative">
-          minimalistic space to just write...
+          My Diary
         </p>
         <form
           className="flex text-right mt-5 flex-col gap-5 items-end relative"
@@ -152,7 +149,7 @@ export default function Home() {
             className="w-full resize-none scrollbar p-2 border min-h-[200px] max-h-[70vh] text-gray-600 italic border-gray-300"
             spellCheck="false"
             value={note}
-            placeholder="What's on your mind..."
+            placeholder="minimalistic space to just write..."
             onChange={(e) => {
               setNote(e.target.value);
               setEmptyWarning(false);
